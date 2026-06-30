@@ -14,9 +14,11 @@ python3 main.py
 Para servir no proprio servidor/local network:
 
 ```bash
-python3 -m pip install -r requirements.txt
+./setup_web.sh
 ./serve_web.sh
 ```
+
+O `setup_web.sh` cria um ambiente virtual local em `.venv` e instala as dependencias nele. Isso evita o erro `externally-managed-environment` em sistemas que bloqueiam instalacao global via `pip`.
 
 Depois acesse:
 

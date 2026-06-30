@@ -14,7 +14,7 @@ pygame.mixer.pre_init(22050, -16, 1, 512)
 pygame.init()
 
 VW, VH = 320, 180
-SCALE = 3 if IS_WEB else 4
+SCALE = 4
 DISPLAY_SIZE = (VW * SCALE, VH * SCALE)
 screen = pygame.display.set_mode(DISPLAY_SIZE)
 pygame.display.set_caption("Joao Pedro: Trail Quest")
@@ -32,14 +32,20 @@ def configure_browser_canvas():
         import platform as web_platform
 
         window = web_platform.window
-        canvas_el = window.canvas
+        canvas_el = window.canvas or window.document.querySelector("canvas")
+        if not canvas_el:
+            return
+        canvas_el.width = DISPLAY_SIZE[0]
+        canvas_el.height = DISPLAY_SIZE[1]
+        canvas_el.tabIndex = 1
         style = canvas_el.style
-        style.imageRendering = "pixelated"
+        style.setProperty("image-rendering", "pixelated")
         style.width = f"{DISPLAY_SIZE[0]}px"
         style.height = f"{DISPLAY_SIZE[1]}px"
         style.maxWidth = "100vw"
         style.maxHeight = "100vh"
         style.objectFit = "contain"
+        style.outline = "none"
 
         body = window.document.body.style
         body.margin = "0"
@@ -48,6 +54,13 @@ def configure_browser_canvas():
         body.alignItems = "center"
         body.justifyContent = "center"
         body.minHeight = "100vh"
+
+        def focus_canvas(_event=None):
+            canvas_el.focus()
+
+        canvas_el.addEventListener("click", focus_canvas)
+        canvas_el.addEventListener("touchstart", focus_canvas)
+        window.setTimeout(focus_canvas, 250)
     except Exception:
         pass
 
@@ -642,6 +655,8 @@ def overlay_title():
     text("Trail!", VW // 2, 88, CYAN, center=True)
     text("ESPACO/W/cima: pula  |  baixo/S: agacha", VW // 2, 102, center=True)
     text("ESPACO para comecar  |  M musica", VW // 2, 128, WHITE, center=True)
+    if IS_WEB:
+        text("clique no jogo para ativar teclado", VW // 2, 142, CYAN, center=True)
     text("desenvolvido por @rafaelcotote", VW // 2, 166, CYAN, center=True)
 
 
@@ -980,12 +995,30 @@ async def main():
     hit_flash = 0
     music_sound, sounds = setup_audio()
     music_on = False
+    music_started = False
     music_channel = None
     if music_sound:
         music_channel = pygame.mixer.Channel(0)
         music_channel.set_volume(0.22)
-        music_channel.play(music_sound, loops=-1)
-        music_on = True
+        if not IS_WEB:
+            music_channel.play(music_sound, loops=-1)
+            music_started = True
+            music_on = True
+
+    def toggle_music():
+        nonlocal music_on, music_started
+        if not music_channel or not music_sound:
+            return
+        if not music_started:
+            music_channel.play(music_sound, loops=-1)
+            music_started = True
+            music_on = True
+            return
+        music_on = not music_on
+        if music_on:
+            music_channel.unpause()
+        else:
+            music_channel.pause()
 
     def quit_game():
         save_best_distance(best_distance)
@@ -1007,12 +1040,8 @@ async def main():
                 if ev.key == pygame.K_ESCAPE:
                     if quit_game():
                         return
-                if ev.key == pygame.K_m and music_channel:
-                    music_on = not music_on
-                    if music_on:
-                        music_channel.unpause()
-                    else:
-                        music_channel.pause()
+                if ev.key == pygame.K_m:
+                    toggle_music()
                 if state == "title" and ev.key == pygame.K_SPACE:
                     state = "play"
                 if state == "gameover" and ev.key == pygame.K_r:

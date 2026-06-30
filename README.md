@@ -36,7 +36,26 @@ http://IP_DO_SERVIDOR:8085
 Se a pagina ficar parada em `Loading, please wait ... download`, force o host publico usado pelo pygbag:
 
 ```bash
+hostname -I
+tailscale ip -4
 WEB_HOST=IP_DO_SERVIDOR ./serve_web.sh
+```
+
+Use um IP que apareca no `hostname -I` ou no `tailscale ip -4` rodado dentro do servidor remoto. O IP mostrado no log de acesso pode ser o IP do cliente/navegador, e nao deve ser usado no `WEB_HOST` se nao estiver configurado no servidor.
+
+Se o ambiente virtual ficar com permissao quebrada, recrie-o:
+
+```bash
+rm -rf ~/.venvs/joao_pedro_trail
+./setup_web.sh
+```
+
+Se o `rm -rf` falhar por permissao:
+
+```bash
+sudo chown -R "$USER:$USER" ~/.venvs/joao_pedro_trail
+rm -rf ~/.venvs/joao_pedro_trail
+./setup_web.sh
 ```
 
 Evite usar `0.0.0.0` como URL no navegador. O script tenta detectar o IP real com `hostname -I`; se ele escolher o IP errado, use `WEB_HOST`.

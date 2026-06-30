@@ -8,18 +8,51 @@ from pathlib import Path
 
 import pygame
 
+IS_WEB = sys.platform in ("emscripten", "wasi")
+
 pygame.mixer.pre_init(22050, -16, 1, 512)
 pygame.init()
 
 VW, VH = 320, 180
-SCALE = 4
-screen = pygame.display.set_mode((VW * SCALE, VH * SCALE))
+SCALE = 3 if IS_WEB else 4
+DISPLAY_SIZE = (VW * SCALE, VH * SCALE)
+screen = pygame.display.set_mode(DISPLAY_SIZE)
 pygame.display.set_caption("Joao Pedro: Trail Quest")
 canvas = pygame.Surface((VW, VH))
 clock = pygame.time.Clock()
 
 FONT = pygame.font.SysFont("couriernew", 10, bold=True)
 BIG = pygame.font.SysFont("couriernew", 18, bold=True)
+
+
+def configure_browser_canvas():
+    if not IS_WEB:
+        return
+    try:
+        import platform as web_platform
+
+        window = web_platform.window
+        canvas_el = window.canvas
+        style = canvas_el.style
+        style.imageRendering = "pixelated"
+        style.width = f"{DISPLAY_SIZE[0]}px"
+        style.height = f"{DISPLAY_SIZE[1]}px"
+        style.maxWidth = "100vw"
+        style.maxHeight = "100vh"
+        style.objectFit = "contain"
+
+        body = window.document.body.style
+        body.margin = "0"
+        body.background = "#111218"
+        body.display = "flex"
+        body.alignItems = "center"
+        body.justifyContent = "center"
+        body.minHeight = "100vh"
+    except Exception:
+        pass
+
+
+configure_browser_canvas()
 
 SKY = (89, 191, 255)
 SKY_DARK = (52, 145, 220)
@@ -84,7 +117,6 @@ BIRD_UNLOCK_M = 900       # passaros (precisam de agachar) a partir de ~900m
 BIRD_Y = 92
 LEVEL_METERS = 250        # 1 nivel a cada 250m (HUD e dificuldade alinhados)
 BEST_FILE = Path(__file__).with_name("recorde_trail.txt")
-IS_WEB = sys.platform in ("emscripten", "wasi")
 
 
 def speed_at(x):
@@ -1099,7 +1131,7 @@ async def main():
         elif state == "gameover":
             overlay_end(score, stars_found, bottles_found, distance, best_distance, distance > start_best)
 
-        scaled = pygame.transform.scale(canvas, (VW * SCALE, VH * SCALE))
+        scaled = pygame.transform.scale(canvas, DISPLAY_SIZE)
         if shake > 0:
             amp = min(14, shake)
             ox = random.randint(-amp, amp)

@@ -21,6 +21,8 @@ rm -rf .venv build dist
 
 O `setup_web.sh` cria um ambiente virtual fora da pasta do jogo, por padrao em `~/.venvs/joao_pedro_trail`, e instala as dependencias nele. Isso evita o erro `externally-managed-environment` em sistemas que bloqueiam instalacao global via `pip` e tambem evita que o pygbag tente empacotar uma `.venv` grande junto com o jogo.
 
+No desktop o jogo abre em `1280x720`. No web ele usa `960x540` com `image-rendering: pixelated` para evitar que o navegador redimensione o canvas com borrado e deixe o texto ilegivel.
+
 Depois acesse:
 
 ```text

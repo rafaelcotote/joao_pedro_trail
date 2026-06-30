@@ -33,4 +33,9 @@ case " $LOCAL_IPS 127.0.0.1 localhost " in
 esac
 
 echo "Servindo em http://$HOST:8085"
-"$PYTHON_BIN" -m pygbag --bind "$HOST" --port 8085 --ume_block 0 .
+WEB_APP_DIR="build/pygbag_app"
+rm -rf "$WEB_APP_DIR"
+mkdir -p "$WEB_APP_DIR"
+cp main.py "$WEB_APP_DIR/main.py"
+
+"$PYTHON_BIN" -m pygbag --bind "$HOST" --port 8085 --ume_block 0 "$WEB_APP_DIR"

@@ -14,15 +14,17 @@ pygame.mixer.pre_init(22050, -16, 1, 512)
 pygame.init()
 
 VW, VH = 320, 180
-SCALE = 4
-DISPLAY_SIZE = (VW * SCALE, VH * SCALE)
+RENDER_SCALE = 2 if IS_WEB else 1
+SCALE = 2 if IS_WEB else 4
+CANVAS_SIZE = (VW * RENDER_SCALE, VH * RENDER_SCALE)
+DISPLAY_SIZE = (CANVAS_SIZE[0] * SCALE, CANVAS_SIZE[1] * SCALE)
 screen = pygame.display.set_mode(DISPLAY_SIZE)
 pygame.display.set_caption("Joao Pedro: Trail Quest")
-canvas = pygame.Surface((VW, VH))
+canvas = pygame.Surface(CANVAS_SIZE)
 clock = pygame.time.Clock()
 
-FONT = pygame.font.SysFont("couriernew", 10, bold=True)
-BIG = pygame.font.SysFont("couriernew", 18, bold=True)
+FONT = pygame.font.SysFont("couriernew", 10 * RENDER_SCALE, bold=True)
+BIG = pygame.font.SysFont("couriernew", 18 * RENDER_SCALE, bold=True)
 
 
 def configure_browser_canvas():
@@ -141,17 +143,51 @@ def level_at_meters(distance):
     return int(distance // LEVEL_METERS)
 
 
+def sx(value):
+    return int(value * RENDER_SCALE)
+
+
+def spoint(point):
+    return sx(point[0]), sx(point[1])
+
+
+def spoints(points):
+    return [spoint(point) for point in points]
+
+
 def box(color, x, y, w, h):
-    pygame.draw.rect(canvas, color, pygame.Rect(int(x), int(y), int(w), int(h)))
+    pygame.draw.rect(
+        canvas,
+        color,
+        pygame.Rect(sx(x), sx(y), max(1, sx(w)), max(1, sx(h))),
+    )
 
 
 def text(msg, x, y, color=WHITE, font=FONT, center=False):
     img = font.render(msg, False, color)
+    x = sx(x)
+    y = sx(y)
     if center:
         x -= img.get_width() // 2
     shadow = font.render(msg, False, BLACK)
-    canvas.blit(shadow, (x + 1, y + 1))
+    canvas.blit(shadow, (x + RENDER_SCALE, y + RENDER_SCALE))
     canvas.blit(img, (x, y))
+
+
+def polygon(color, points):
+    pygame.draw.polygon(canvas, color, spoints(points))
+
+
+def line(color, start, end, width=1):
+    pygame.draw.line(canvas, color, spoint(start), spoint(end), max(1, sx(width)))
+
+
+def lines(color, closed, points, width=1):
+    pygame.draw.lines(canvas, color, closed, spoints(points), max(1, sx(width)))
+
+
+def circle(color, center, radius, width=0):
+    pygame.draw.circle(canvas, color, spoint(center), max(1, sx(radius)), sx(width) if width else 0)
 
 
 def heart(x, y):
@@ -201,7 +237,7 @@ def chest(x, y, opened=False):
 
 def mushroom(x, y):
     box(WHITE, x + 5, y + 6, 5, 7)
-    pygame.draw.polygon(canvas, RED, [(x, y + 8), (x + 4, y), (x + 12, y), (x + 16, y + 8)])
+    polygon(RED, [(x, y + 8), (x + 4, y), (x + 12, y), (x + 16, y + 8)])
     box(WHITE, x + 4, y + 4, 2, 2)
     box(WHITE, x + 10, y + 3, 2, 2)
     box(BLACK, x + 4, y + 13, 8, 1)
@@ -218,8 +254,8 @@ def bottle(x, y, frame=0):
 
 
 def draw_rock(sx, y, w, h):
-    pygame.draw.polygon(canvas, ROCK, [(sx, y + h - 1), (sx + 3, y + 2), (sx + w - 5, y), (sx + w - 1, y + h - 1)])
-    pygame.draw.polygon(canvas, ROCK_LIGHT, [(sx + 3, y + 3), (sx + 9, y + 1), (sx + 7, y + 6)])
+    polygon(ROCK, [(sx, y + h - 1), (sx + 3, y + 2), (sx + w - 5, y), (sx + w - 1, y + h - 1)])
+    polygon(ROCK_LIGHT, [(sx + 3, y + 3), (sx + 9, y + 1), (sx + 7, y + 6)])
 
 
 def draw_bird(sx, y, frame):
@@ -229,17 +265,17 @@ def draw_bird(sx, y, frame):
     box(YELLOW, sx + 12, y + 3, 3, 2)
     box(BLACK, sx + 11, y + 2, 1, 1)
     if flap_up:
-        pygame.draw.polygon(canvas, BIRD_WING, [(sx + 5, y + 3), (sx + 1, y - 3), (sx + 9, y + 3)])
+        polygon(BIRD_WING, [(sx + 5, y + 3), (sx + 1, y - 3), (sx + 9, y + 3)])
     else:
-        pygame.draw.polygon(canvas, BIRD_WING, [(sx + 5, y + 5), (sx + 1, y + 11), (sx + 9, y + 5)])
+        polygon(BIRD_WING, [(sx + 5, y + 5), (sx + 1, y + 11), (sx + 9, y + 5)])
 
 
 def draw_sun(camera):
     sx = 248 - int(camera * 0.025) % 420
     if sx < -32:
         sx += 420
-    pygame.draw.circle(canvas, SUN_EDGE, (sx, 32), 14)
-    pygame.draw.circle(canvas, SUN, (sx, 32), 11)
+    circle(SUN_EDGE, (sx, 32), 14)
+    circle(SUN, (sx, 32), 11)
     for dx, dy in [(-20, 0), (20, 0), (0, -20), (0, 20)]:
         box(SUN, sx + dx, 31 + dy, 5 if dx else 2, 2 if dx else 5)
 
@@ -247,8 +283,8 @@ def draw_sun(camera):
 def draw_background_hills(camera):
     for i in range(-1, 6):
         x = i * 86 - int(camera * 0.20) % 86
-        pygame.draw.polygon(canvas, HILL_DARK, [(x, 122), (x + 42, 82), (x + 88, 122)])
-        pygame.draw.polygon(canvas, HILL, [(x + 16, 122), (x + 58, 92), (x + 104, 122)])
+        polygon(HILL_DARK, [(x, 122), (x + 42, 82), (x + 88, 122)])
+        polygon(HILL, [(x + 16, 122), (x + 58, 92), (x + 104, 122)])
 
 
 def draw_midground_details(camera):
@@ -258,7 +294,7 @@ def draw_midground_details(camera):
         box(WOOD_LIGHT, x + 8, 116, 8, 2)
         box(BROWN, x + 38, 116, 4, 14)
         box(WOOD_LIGHT, x + 36, 116, 8, 2)
-        pygame.draw.line(canvas, WOOD, (x + 12, 120), (x + 40, 120), 1)
+        line(WOOD, (x + 12, 120), (x + 40, 120), 1)
     for i in range(-1, 10):
         x = i * 45 - int(camera * 0.55) % 45
         y = 133 + (i % 3) * 4
@@ -288,8 +324,8 @@ def world_sign(label, sx, y, color=YELLOW):
 
 def finish_flag(sx, y):
     box(BLACK, sx, y - 36, 2, 36)
-    pygame.draw.polygon(canvas, WHITE, [(sx + 2, y - 36), (sx + 22, y - 31), (sx + 2, y - 25)])
-    pygame.draw.polygon(canvas, ORANGE, [(sx + 4, y - 34), (sx + 18, y - 31), (sx + 4, y - 28)])
+    polygon(WHITE, [(sx + 2, y - 36), (sx + 22, y - 31), (sx + 2, y - 25)])
+    polygon(ORANGE, [(sx + 4, y - 34), (sx + 18, y - 31), (sx + 4, y - 28)])
 
 
 def bg(camera):
@@ -305,9 +341,9 @@ def bg(camera):
 
     for i in range(-1, 5):
         mx = i * 90 - int(camera * 0.12) % 90
-        pygame.draw.polygon(canvas, MOUNTAIN_DARK, [(mx, 115), (mx + 45, 45), (mx + 90, 115)])
-        pygame.draw.polygon(canvas, MOUNTAIN, [(mx + 16, 90), (mx + 45, 45), (mx + 72, 90)])
-        pygame.draw.polygon(canvas, CLOUD, [(mx + 39, 55), (mx + 45, 45), (mx + 51, 55)])
+        polygon(MOUNTAIN_DARK, [(mx, 115), (mx + 45, 45), (mx + 90, 115)])
+        polygon(MOUNTAIN, [(mx + 16, 90), (mx + 45, 45), (mx + 72, 90)])
+        polygon(CLOUD, [(mx + 39, 55), (mx + 45, 45), (mx + 51, 55)])
 
     draw_background_hills(camera)
 
@@ -315,8 +351,8 @@ def bg(camera):
         tx = i * 55 - int(camera * 0.30) % 55
         ty = 105 + (i % 2) * 10
         box(BROWN, tx + 15, ty + 8, 5, 28)
-        pygame.draw.polygon(canvas, TREE_DARK, [(tx + 17, ty - 20), (tx, ty + 18), (tx + 34, ty + 18)])
-        pygame.draw.polygon(canvas, TREE, [(tx + 17, ty - 10), (tx + 3, ty + 25), (tx + 31, ty + 25)])
+        polygon(TREE_DARK, [(tx + 17, ty - 20), (tx, ty + 18), (tx + 34, ty + 18)])
+        polygon(TREE, [(tx + 17, ty - 10), (tx + 3, ty + 25), (tx + 31, ty + 25)])
 
     box(GRASS, 0, 122, VW, VH - 122)
     for i in range(0, VW, 8):
@@ -328,8 +364,8 @@ def bg(camera):
     for px in range(0, VW + 20, 8):
         y = 150 + math.sin((px + camera * 0.3) / 23) * 7
         path.append((px, y))
-    pygame.draw.lines(canvas, DIRT_DARK, False, path, 24)
-    pygame.draw.lines(canvas, DIRT, False, path, 18)
+    lines(DIRT_DARK, False, path, 24)
+    lines(DIRT, False, path, 18)
 
 
 class Player:
@@ -531,20 +567,20 @@ class ChestPickup:
 
 def draw_joao_pedro(x, y, frame, ducking=False, squash=0):
     # Bicicleta
-    pygame.draw.circle(canvas, BLACK, (int(x + 5), int(y - 5)), 5, 1)
-    pygame.draw.circle(canvas, BLACK, (int(x + 19), int(y - 5)), 5, 1)
+    circle(BLACK, (int(x + 5), int(y - 5)), 5, 1)
+    circle(BLACK, (int(x + 19), int(y - 5)), 5, 1)
     spoke = frame % 12
-    pygame.draw.line(canvas, BLACK, (x + 5, y - 10), (x + 5, y), 1)
-    pygame.draw.line(canvas, BLACK, (x + 19, y - 10), (x + 19, y), 1)
-    pygame.draw.line(canvas, BLACK, (x + 1 + spoke // 3, y - 5), (x + 9 - spoke // 3, y - 5), 1)
-    pygame.draw.line(canvas, BLACK, (x + 15 + spoke // 3, y - 5), (x + 23 - spoke // 3, y - 5), 1)
-    pygame.draw.line(canvas, CYAN, (x + 5, y - 5), (x + 11, y - 12), 2)
-    pygame.draw.line(canvas, BLUE, (x + 19, y - 5), (x + 11, y - 12), 2)
-    pygame.draw.line(canvas, CYAN, (x + 8, y - 13), (x + 16, y - 13), 2)
-    pygame.draw.line(canvas, BLUE, (x + 16, y - 13), (x + 20, y - 16), 1)
-    pygame.draw.line(canvas, BLUE, (x + 8, y - 13), (x + 9, y - 17), 1)
+    line(BLACK, (x + 5, y - 10), (x + 5, y), 1)
+    line(BLACK, (x + 19, y - 10), (x + 19, y), 1)
+    line(BLACK, (x + 1 + spoke // 3, y - 5), (x + 9 - spoke // 3, y - 5), 1)
+    line(BLACK, (x + 15 + spoke // 3, y - 5), (x + 23 - spoke // 3, y - 5), 1)
+    line(CYAN, (x + 5, y - 5), (x + 11, y - 12), 2)
+    line(BLUE, (x + 19, y - 5), (x + 11, y - 12), 2)
+    line(CYAN, (x + 8, y - 13), (x + 16, y - 13), 2)
+    line(BLUE, (x + 16, y - 13), (x + 20, y - 16), 1)
+    line(BLUE, (x + 8, y - 13), (x + 9, y - 17), 1)
     box(BLACK, x + 8, y - 18, 4, 2)
-    pygame.draw.line(canvas, BLACK, (x + 20, y - 16), (x + 23, y - 17), 1)
+    line(BLACK, (x + 20, y - 16), (x + 23, y - 17), 1)
 
     if ducking:
         # João Pedro agachado (passa por baixo do passaro)
@@ -569,11 +605,11 @@ def draw_joao_pedro(x, y, frame, ducking=False, squash=0):
     box(SKIN, x + 17, top + 9, 2, 6)     # braco
 
     if frame % 12 < 6:
-        pygame.draw.line(canvas, SKIN, (x + 10, y - 14), (x + 8, y - 8), 2)
-        pygame.draw.line(canvas, SKIN, (x + 14, y - 14), (x + 17, y - 8), 2)
+        line(SKIN, (x + 10, y - 14), (x + 8, y - 8), 2)
+        line(SKIN, (x + 14, y - 14), (x + 17, y - 8), 2)
     else:
-        pygame.draw.line(canvas, SKIN, (x + 10, y - 14), (x + 13, y - 8), 2)
-        pygame.draw.line(canvas, SKIN, (x + 14, y - 14), (x + 10, y - 8), 2)
+        line(SKIN, (x + 10, y - 14), (x + 13, y - 8), 2)
+        line(SKIN, (x + 14, y - 14), (x + 10, y - 8), 2)
     box(BLUE, x + 7, y - 8, 4, 2)
     box(BLUE, x + 15, y - 8, 4, 2)
 
@@ -633,9 +669,9 @@ def hud(score, coins, hearts_left, distance, stars_found, bottles_found,
     box((42, 47, 55), 224, 22, 85, 45)
     text("TRAIL MODE", 266, 25, WHITE, center=True)
     box(SKY, 229, 37, 34, 20)
-    pygame.draw.polygon(canvas, TREE_DARK, [(230, 57), (242, 41), (254, 57)])
-    pygame.draw.polygon(canvas, GREEN_LIGHT, [(239, 57), (254, 45), (263, 57)])
-    pygame.draw.lines(canvas, DIRT, False, [(231, 57), (241, 51), (250, 51), (261, 45)], 3)
+    polygon(TREE_DARK, [(230, 57), (242, 41), (254, 57)])
+    polygon(GREEN_LIGHT, [(239, 57), (254, 45), (263, 57)])
+    lines(DIRT, False, [(231, 57), (241, 51), (250, 51), (261, 45)], 3)
     finish_flag(261, 50)
     level = 1 + level_at_meters(distance)
     text(f"LVL {level}", 268, 37, YELLOW)

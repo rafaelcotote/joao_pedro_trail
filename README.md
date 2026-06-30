@@ -21,7 +21,7 @@ rm -rf .venv build dist
 
 O `setup_web.sh` cria um ambiente virtual fora da pasta do jogo, por padrao em `~/.venvs/joao_pedro_trail`, e instala as dependencias nele. Isso evita o erro `externally-managed-environment` em sistemas que bloqueiam instalacao global via `pip` e tambem evita que o pygbag tente empacotar uma `.venv` grande junto com o jogo.
 
-No desktop e no web o jogo usa `1280x720`. No web, o canvas recebe `image-rendering: pixelated` e foco automatico para evitar texto borrado e perda de teclado. Se alguma tecla nao responder no navegador, clique uma vez dentro do jogo para ativar o foco. A musica no web nao inicia automaticamente por causa das regras de autoplay do navegador; aperte `M` depois de clicar no jogo.
+No desktop e no web o jogo abre em `1280x720`. No web, a cena e renderizada internamente em `640x360` antes de ir para a tela, deixando textos e HUD mais legiveis do que apenas ampliar `320x180`. O canvas tambem recebe `image-rendering: pixelated` e foco automatico para evitar texto borrado e perda de teclado. Se alguma tecla nao responder no navegador, clique uma vez dentro do jogo para ativar o foco. A musica no web nao inicia automaticamente por causa das regras de autoplay do navegador; aperte `M` depois de clicar no jogo.
 
 Depois acesse:
 

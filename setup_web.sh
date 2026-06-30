@@ -3,8 +3,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -r requirements.txt
+VENV_DIR="${VENV_DIR:-$HOME/.venvs/joao_pedro_trail}"
 
-echo "Ambiente pronto. Rode: ./serve_web.sh"
+python3 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/python" -m pip install --upgrade pip
+"$VENV_DIR/bin/python" -m pip install -r requirements.txt
+
+echo "Ambiente pronto em $VENV_DIR. Rode: ./serve_web.sh"

@@ -14,11 +14,12 @@ python3 main.py
 Para servir no proprio servidor/local network:
 
 ```bash
+rm -rf .venv build dist
 ./setup_web.sh
 ./serve_web.sh
 ```
 
-O `setup_web.sh` cria um ambiente virtual local em `.venv` e instala as dependencias nele. Isso evita o erro `externally-managed-environment` em sistemas que bloqueiam instalacao global via `pip`.
+O `setup_web.sh` cria um ambiente virtual fora da pasta do jogo, por padrao em `~/.venvs/joao_pedro_trail`, e instala as dependencias nele. Isso evita o erro `externally-managed-environment` em sistemas que bloqueiam instalacao global via `pip` e tambem evita que o pygbag tente empacotar uma `.venv` grande junto com o jogo.
 
 Depois acesse:
 
@@ -31,6 +32,14 @@ De outro dispositivo na mesma rede, use:
 ```text
 http://IP_DO_SERVIDOR:8085
 ```
+
+Se a pagina ficar parada em `Loading, please wait ... download`, force o host publico usado pelo pygbag:
+
+```bash
+WEB_HOST=IP_DO_SERVIDOR ./serve_web.sh
+```
+
+Evite usar `0.0.0.0` como URL no navegador. O script tenta detectar o IP real com `hostname -I`; se ele escolher o IP errado, use `WEB_HOST`.
 
 Para gerar somente os arquivos estaticos:
 

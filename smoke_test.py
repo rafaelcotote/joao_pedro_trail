@@ -98,6 +98,10 @@ def test_physics():
     pc.update(FakeKeys([pygame.K_SPACE]))
     check(pc.vy < 0, "coyote time permite pular logo apos sair do chao")
 
+    pt = m.Player()
+    pt.update(FakeKeys(), touch_jump=True)
+    check(pt.vy < 0, "toque/click no web aciona o mesmo pulo do espaco")
+
 
 def test_world():
     print("== mundo: geracao e dificuldade ==")

@@ -21,7 +21,9 @@ rm -rf .venv build dist
 
 O `setup_web.sh` cria um ambiente virtual fora da pasta do jogo, por padrao em `~/.venvs/joao_pedro_trail`, e instala as dependencias nele. Isso evita o erro `externally-managed-environment` em sistemas que bloqueiam instalacao global via `pip` e tambem evita que o pygbag tente empacotar uma `.venv` grande junto com o jogo.
 
-No desktop e no web o jogo abre em `1280x720`. No web, a cena e renderizada internamente em `640x360` antes de ir para a tela, deixando textos e HUD mais legiveis do que apenas ampliar `320x180`. O canvas tambem recebe `image-rendering: pixelated` e foco automatico para evitar texto borrado e perda de teclado. Se alguma tecla nao responder no navegador, clique uma vez dentro do jogo para ativar o foco. A musica no web nao inicia automaticamente por causa das regras de autoplay do navegador; aperte `M` depois de clicar no jogo.
+Depois de puxar uma versao nova do jogo no servidor, rode `rm -rf build` antes de `./serve_web.sh` para forcar o pygbag a gerar o pacote web atualizado.
+
+No desktop e no web o jogo abre em `1280x720`. No web, a cena e renderizada internamente em `640x360` antes de ir para a tela, e os textos usam uma fonte bitmap desenhada pelo proprio jogo. Isso evita a fonte pequena/ilegivel que o navegador gerava ao ampliar o canvas de baixa resolucao. O canvas tambem recebe `image-rendering: pixelated` e foco automatico para evitar texto borrado e perda de teclado. Se alguma tecla nao responder no navegador, clique uma vez dentro do jogo para ativar o foco. A musica no web nao inicia automaticamente por causa das regras de autoplay do navegador; aperte `M` depois de clicar no jogo.
 
 Depois acesse:
 
@@ -80,6 +82,7 @@ O build web fica em `build/web/`.
 
 - A bicicleta anda sozinha.
 - **Espaço / W / seta para cima**: pular (segure para pular mais alto, solte para um pulo curto)
+- **Toque/clique na tela no web**: iniciar, pular e reiniciar depois de perder
 - **Baixo / S**: agachar (única forma de passar por baixo dos pássaros)
 - **M**: ligar/desligar a música
 - **R**: reiniciar depois de perder
@@ -115,6 +118,7 @@ Música 8-bit gerada pelo próprio jogo (sem arquivo externo), reescrita para ca
 ```bash
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python3 smoke_test.py    # valida física, fairness e o loop completo, sem janela
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python3 render_frames.py # gera PNGs dos frames em /tmp/trailquest para conferência visual
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy TRAILQUEST_WEB_RENDER=1 python3 render_frames.py # simula a renderizacao web
 ```
 
 Desenvolvido por **@rafaelcotote**.

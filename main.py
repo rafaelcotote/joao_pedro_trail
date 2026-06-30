@@ -9,13 +9,15 @@ from pathlib import Path
 import pygame
 
 IS_WEB = sys.platform in ("emscripten", "wasi")
+WEB_RENDER = IS_WEB or os.environ.get("TRAILQUEST_WEB_RENDER") == "1"
+WEB_HINTS = WEB_RENDER or os.environ.get("TRAILQUEST_WEB_INPUT") == "1"
 
 pygame.mixer.pre_init(22050, -16, 1, 512)
 pygame.init()
 
 VW, VH = 320, 180
-RENDER_SCALE = 2 if IS_WEB else 1
-SCALE = 2 if IS_WEB else 4
+RENDER_SCALE = 2 if WEB_RENDER else 1
+SCALE = 2 if WEB_RENDER else 4
 CANVAS_SIZE = (VW * RENDER_SCALE, VH * RENDER_SCALE)
 DISPLAY_SIZE = (CANVAS_SIZE[0] * SCALE, CANVAS_SIZE[1] * SCALE)
 screen = pygame.display.set_mode(DISPLAY_SIZE)
@@ -24,7 +26,9 @@ canvas = pygame.Surface(CANVAS_SIZE)
 clock = pygame.time.Clock()
 
 FONT = pygame.font.SysFont("couriernew", 10 * RENDER_SCALE, bold=True)
+MID = pygame.font.SysFont("couriernew", 14 * RENDER_SCALE, bold=True)
 BIG = pygame.font.SysFont("couriernew", 18 * RENDER_SCALE, bold=True)
+USE_BITMAP_FONT = WEB_RENDER or os.environ.get("TRAILQUEST_BITMAP_FONT") == "1"
 
 
 def configure_browser_canvas():
@@ -42,6 +46,8 @@ def configure_browser_canvas():
         canvas_el.tabIndex = 1
         style = canvas_el.style
         style.setProperty("image-rendering", "pixelated")
+        style.setProperty("touch-action", "none")
+        style.setProperty("-webkit-user-select", "none")
         style.width = f"{DISPLAY_SIZE[0]}px"
         style.height = f"{DISPLAY_SIZE[1]}px"
         style.maxWidth = "100vw"
@@ -58,6 +64,11 @@ def configure_browser_canvas():
         body.minHeight = "100vh"
 
         def focus_canvas(_event=None):
+            if _event:
+                try:
+                    _event.preventDefault()
+                except Exception:
+                    pass
             canvas_el.focus()
 
         canvas_el.addEventListener("click", focus_canvas)
@@ -110,6 +121,7 @@ SPEED_RAMP = 320.0        # metros (x/10) por +1.0 de velocidade
 MAX_SPEED_GAIN = 2.2      # teto: velocidade base maxima = 4.6
 BOOST_BONUS = 0.7
 BOOST_FRAMES = 150        # boost mais curto/raro para a aceleracao "aparecer"
+TOUCH_JUMP_FRAMES = 10    # toque curto no celular vira um pulinho consistente
 
 # --- Pulo com altura variavel + perdao (coyote/buffer) ---
 JUMP_FORCE = -5.75
@@ -163,7 +175,93 @@ def box(color, x, y, w, h):
     )
 
 
+PIXEL_FONT = {
+    "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+    "B": ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+    "C": ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+    "D": ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+    "E": ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+    "F": ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+    "G": ["01111", "10000", "10000", "10111", "10001", "10001", "01111"],
+    "H": ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+    "I": ["111", "010", "010", "010", "010", "010", "111"],
+    "J": ["00111", "00010", "00010", "00010", "10010", "10010", "01100"],
+    "K": ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+    "L": ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+    "M": ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+    "N": ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+    "O": ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+    "P": ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+    "Q": ["01110", "10001", "10001", "10001", "10101", "10010", "01101"],
+    "R": ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+    "S": ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+    "T": ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+    "U": ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+    "V": ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+    "W": ["10001", "10001", "10001", "10101", "10101", "10101", "01010"],
+    "X": ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+    "Y": ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+    "Z": ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+    "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+    "1": ["010", "110", "010", "010", "010", "010", "111"],
+    "2": ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
+    "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+    "4": ["10010", "10010", "10010", "11111", "00010", "00010", "00010"],
+    "5": ["11111", "10000", "10000", "11110", "00001", "00001", "11110"],
+    "6": ["01110", "10000", "10000", "11110", "10001", "10001", "01110"],
+    "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+    "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+    "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+    ".": ["0", "0", "0", "0", "0", "0", "1"],
+    ",": ["0", "0", "0", "0", "0", "1", "1"],
+    ":": ["0", "1", "1", "0", "1", "1", "0"],
+    ";": ["0", "1", "1", "0", "1", "1", "1"],
+    "!": ["1", "1", "1", "1", "1", "0", "1"],
+    "?": ["01110", "10001", "00001", "00010", "00100", "00000", "00100"],
+    "+": ["000", "010", "010", "111", "010", "010", "000"],
+    "-": ["000", "000", "000", "111", "000", "000", "000"],
+    "/": ["00001", "00010", "00010", "00100", "01000", "01000", "10000"],
+    "|": ["1", "1", "1", "1", "1", "1", "1"],
+    "@": ["01110", "10001", "10111", "10101", "10111", "10000", "01110"],
+    "(": ["01", "10", "10", "10", "10", "10", "01"],
+    ")": ["10", "01", "01", "01", "01", "01", "10"],
+}
+
+
+def bitmap_text_width(msg, block):
+    width = 0
+    for ch in msg.upper():
+        if ch == " ":
+            width += 3 * block
+        else:
+            glyph = PIXEL_FONT.get(ch, PIXEL_FONT["?"])
+            width += (len(glyph[0]) + 1) * block
+    return max(0, width - block)
+
+
+def draw_bitmap_text(msg, x, y, color, block):
+    cursor = x
+    for ch in msg.upper():
+        if ch == " ":
+            cursor += 3 * block
+            continue
+        glyph = PIXEL_FONT.get(ch, PIXEL_FONT["?"])
+        for gy, row in enumerate(glyph):
+            for gx, pixel in enumerate(row):
+                if pixel == "1":
+                    box(color, cursor + gx * block, y + gy * block, block, block)
+        cursor += (len(glyph[0]) + 1) * block
+
+
 def text(msg, x, y, color=WHITE, font=FONT, center=False):
+    if USE_BITMAP_FONT:
+        block = 2 if font is MID or font is BIG else 1
+        if center:
+            x -= bitmap_text_width(msg, block) // 2
+        draw_bitmap_text(msg, x + 1, y + 1, BLACK, block)
+        draw_bitmap_text(msg, x, y, color, block)
+        return
+
     img = font.render(msg, False, color)
     x = sx(x)
     y = sx(y)
@@ -392,10 +490,10 @@ class Player:
             return pygame.Rect(int(self.x) + 6, int(self.y) - 18, 18, 18)
         return pygame.Rect(int(self.x) + 6, int(self.y) - 34, 18, 34)
 
-    def update(self, keys):
+    def update(self, keys, touch_jump=False):
         jumped = False
         landed = False
-        jump_key = keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]
+        jump_key = touch_jump or keys[pygame.K_SPACE] or keys[pygame.K_UP] or keys[pygame.K_w]
         duck_key = keys[pygame.K_DOWN] or keys[pygame.K_s]
 
         self.base_speed = speed_at(self.x)
@@ -665,46 +763,44 @@ def hud(score, coins, hearts_left, distance, stars_found, bottles_found,
     text(f"PTS {score}", VW // 2, 18, YELLOW, center=True)
     text("JOAO PEDRO: TRAIL QUEST", VW // 2, 7, YELLOW, center=True)
 
-    box(BLACK, 221, 19, 91, 51)
-    box((42, 47, 55), 224, 22, 85, 45)
-    text("TRAIL MODE", 266, 25, WHITE, center=True)
-    box(SKY, 229, 37, 34, 20)
-    polygon(TREE_DARK, [(230, 57), (242, 41), (254, 57)])
-    polygon(GREEN_LIGHT, [(239, 57), (254, 45), (263, 57)])
-    lines(DIRT, False, [(231, 57), (241, 51), (250, 51), (261, 45)], 3)
-    finish_flag(261, 50)
+    box(BLACK, 218, 18, 98, 55)
+    box((42, 47, 55), 221, 21, 92, 49)
+    text("TRILHA", 267, 24, WHITE, center=True)
+    box(SKY, 226, 37, 34, 20)
+    polygon(TREE_DARK, [(227, 57), (239, 41), (251, 57)])
+    polygon(GREEN_LIGHT, [(236, 57), (251, 45), (260, 57)])
+    lines(DIRT, False, [(228, 57), (238, 51), (247, 51), (258, 45)], 3)
     level = 1 + level_at_meters(distance)
-    text(f"LVL {level}", 268, 37, YELLOW)
-    text(f"{distance}m", 268, 47, WHITE)
-    box(BLACK, 268, 57, 40, 4)
-    fill = int(38 * ((distance % LEVEL_METERS) / LEVEL_METERS))
-    box(YELLOW, 269, 58, fill, 2)
-    text(f"REC {best_distance}m", 226, 62, CYAN)
-    text("M", 301, 62, YELLOW if music_on else RED)
+    text(f"LVL {level}", 265, 37, YELLOW)
+    text(f"{distance}m", 265, 47, WHITE)
+    box(BLACK, 265, 57, 44, 4)
+    fill = int(42 * ((distance % LEVEL_METERS) / LEVEL_METERS))
+    box(YELLOW, 266, 58, fill, 2)
+    text(f"REC {best_distance}m", 222, 63, CYAN)
+    text("M", 304, 63, YELLOW if music_on else RED)
 
 
 def overlay_title():
-    box(BLACK, 25, 28, 270, 126)
-    wood_panel(29, 32, 262, 118)
-    text("JOAO PEDRO", VW // 2, 44, YELLOW, BIG, center=True)
-    text("TRAIL QUEST", VW // 2, 64, WHITE, BIG, center=True)
-    text("Trail!", VW // 2, 88, CYAN, center=True)
-    text("ESPACO/W/cima: pula  |  baixo/S: agacha", VW // 2, 102, center=True)
-    text("ESPACO para comecar  |  M musica", VW // 2, 128, WHITE, center=True)
-    if IS_WEB:
-        text("clique no jogo para ativar teclado", VW // 2, 142, CYAN, center=True)
+    box(BLACK, 23, 24, 274, 136)
+    wood_panel(27, 28, 266, 128)
+    text("JOAO PEDRO", VW // 2, 40, YELLOW, BIG, center=True)
+    text("TRAIL QUEST", VW // 2, 60, WHITE, BIG, center=True)
+    text("PULAR: TOQUE/ESPACO" if WEB_HINTS else "PULAR: ESPACO/W/CIMA", VW // 2, 84, WHITE, MID, center=True)
+    text("AGACHAR: BAIXO/S", VW // 2, 104, CYAN, MID, center=True)
+    text("TOQUE PARA COMECAR" if WEB_HINTS else "INICIAR: ESPACO", VW // 2, 124, YELLOW, MID, center=True)
+    text("M: MUSICA", VW // 2, 144, WHITE, center=True)
     text("desenvolvido por @rafaelcotote", VW // 2, 166, CYAN, center=True)
 
 
 def overlay_end(score, stars_found, bottles_found, distance, best_distance, beaten):
-    box(BLACK, 40, 38, 240, 112)
-    wood_panel(44, 42, 232, 104)
-    text("NOVO RECORDE!" if beaten else "FIM DA CORRIDA", VW // 2, 58, GOLD if beaten else RED, BIG, center=True)
-    text(f"Distancia: {distance}m", VW // 2, 84, YELLOW, center=True)
-    text(f"Recorde: {best_distance}m", VW // 2, 96, CYAN, center=True)
-    text(f"Pontos {score} | Estrelas {stars_found}", VW // 2, 110, WHITE, center=True)
-    text(f"Mamadeiras: {bottles_found}", VW // 2, 122, PINK, center=True)
-    text("R reinicia | ESC sai", VW // 2, 136, center=True)
+    box(BLACK, 36, 32, 248, 124)
+    wood_panel(40, 36, 240, 116)
+    text("NOVO RECORDE!" if beaten else "FIM DA CORRIDA", VW // 2, 50, GOLD if beaten else RED, BIG, center=True)
+    text(f"DISTANCIA {distance}M", VW // 2, 78, YELLOW, MID, center=True)
+    text(f"RECORDE {best_distance}M", VW // 2, 98, CYAN, MID, center=True)
+    text(f"PTS {score}  ESTRELAS {stars_found}", VW // 2, 118, WHITE, center=True)
+    text(f"MAMADEIRAS {bottles_found}", VW // 2, 130, PINK, center=True)
+    text("TOQUE OU R: REINICIAR" if WEB_HINTS else "R: REINICIAR", VW // 2, 144, WHITE, center=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1033,6 +1129,8 @@ async def main():
     music_on = False
     music_started = False
     music_channel = None
+    touch_jump_frames = 0
+    touch_held = False
     if music_sound:
         music_channel = pygame.mixer.Channel(0)
         music_channel.set_volume(0.22)
@@ -1062,6 +1160,20 @@ async def main():
             pygame.quit()
         return True
 
+    def restart_run():
+        nonlocal player, world, lives, score, coins, stars_found, bottles_found, combo
+        nonlocal distance, start_best, prev_level, popups, particles, shake, hit_flash, state
+        player, world = Player(), World()
+        lives, score, coins, stars_found, bottles_found, combo = START_LIVES, 0, 0, 0, 0, 0
+        distance = 0
+        start_best = best_distance
+        prev_level = 0
+        popups = []
+        particles = []
+        shake = 0
+        hit_flash = 0
+        state = "play"
+
     while True:
         frame += 1
         if max_frames and frame > max_frames:
@@ -1072,6 +1184,15 @@ async def main():
             if ev.type == pygame.QUIT:
                 if quit_game():
                     return
+            if ev.type in (pygame.MOUSEBUTTONDOWN, pygame.FINGERDOWN):
+                touch_held = True
+                touch_jump_frames = TOUCH_JUMP_FRAMES
+                if state == "title":
+                    state = "play"
+                elif state == "gameover":
+                    restart_run()
+            if ev.type in (pygame.MOUSEBUTTONUP, pygame.FINGERUP):
+                touch_held = False
             if ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_ESCAPE:
                     if quit_game():
@@ -1080,25 +1201,18 @@ async def main():
                     toggle_music()
                 if state == "title" and ev.key == pygame.K_SPACE:
                     state = "play"
-                if state == "gameover" and ev.key == pygame.K_r:
-                    player, world = Player(), World()
-                    lives, score, coins, stars_found, bottles_found, combo = START_LIVES, 0, 0, 0, 0, 0
-                    distance = 0
-                    start_best = best_distance
-                    prev_level = 0
-                    popups = []
-                    particles = []
-                    shake = 0
-                    hit_flash = 0
-                    state = "play"
+                if state == "gameover" and ev.key in (pygame.K_r, pygame.K_SPACE):
+                    restart_run()
 
         if state == "play":
-            jumped, landed = player.update(keys)
+            jumped, landed = player.update(keys, touch_held or touch_jump_frames > 0)
             if jumped:
                 play_sfx(sounds, "jump")
                 spawn_dust(particles, player.x, 3)
             if landed:
                 spawn_dust(particles, player.x, 5)
+        if touch_jump_frames:
+            touch_jump_frames -= 1
 
         camera = 0 if state == "title" else max(0, player.x - (74 + int(min(player.base_speed - BASE_SPEED, 1.6) * 12)))
 

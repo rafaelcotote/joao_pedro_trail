@@ -12,7 +12,7 @@ os.makedirs(OUT, exist_ok=True)
 
 
 def save(name):
-    big = pygame.transform.scale(m.canvas, (m.VW * 3, m.VH * 3))
+    big = pygame.transform.scale(m.canvas, m.DISPLAY_SIZE)
     pygame.image.save(big, f"{OUT}/{name}.png")
     print(f"  salvo {OUT}/{name}.png")
 

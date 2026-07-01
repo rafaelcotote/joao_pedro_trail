@@ -31,6 +31,20 @@ Depois acesse:
 http://localhost:8085
 ```
 
+## Como rodar via Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Depois acesse:
+
+```text
+http://localhost:8085
+```
+
+O build web via `pygbag` acontece dentro da imagem Docker, e o container final sobe apenas um servidor HTTP simples servindo os arquivos gerados.
+
 De outro dispositivo na mesma rede, use:
 
 ```text
